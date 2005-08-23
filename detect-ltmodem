@@ -1,0 +1,33 @@
+#!/bin/sh
+# Copyright 2004, 2005 Stefan Lippers-Hollmann <s.l-h@gmx.de>
+# licensed under the GPL
+
+if [ $(id -u) != 0 ]; then
+	echo You have to be root to install the ltmodem driver.
+	exec su -c "$0" || echo authorization failed. && exit 1
+fi
+
+rmmod ltserial ltmodem 2> /dev/null
+
+rm -f /dev/ttyLT0 2> /dev/null
+
+mknod --mode=0660 /dev/ttyLT0 c 62 64
+chown root:dialout /dev/ttyLT0
+ln -fs /dev/ttyLT0 /dev/modem
+
+if [ -r /etc/modules-$(uname -r) ]; then
+	MODULES="/etc/modules-$(uname -r)"
+elif [ -r /etc/modules-2.6 ]; then
+	MODULES="/etc/modules-2.6"
+else
+	MODULES="/etc/modules"
+fi
+
+#add ltserial to /etc/modules-$(uname -r)
+perl -pi -e 's/^.*\#.*(ltserial.*)/\1/g' "$MODULES"
+
+grep -q ltserial "$MODULES" || echo ltserial >> "$MODULES"
+update-modules 2> /dev/null
+
+modprobe ltserial
+
